@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人数字维度</title>
+    <!-- 引入自定义样式 -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- 引入 Google 字体 (Inter 现代字体) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- 引入 Lenis (平滑滚动) -->
+    <script src="https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
+    <!-- 引入 Particles.js (酷炫粒子背景) -->
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+</head>
+<body>
+    <!-- 粒子背景层 -->
+    <div id="particles-js"></div>
+
+    <!-- 左上角汉堡菜单按钮 -->
+    <div class="menu-btn" id="menu-btn">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+    </div>
+
+    <!-- 全屏遮罩菜单 -->
+    <div class="menu-overlay" id="menu-overlay">
+        <nav class="nav-links">
+            <ul id="menu-list">
+                <li style="--i:1;"><a href="#top" class="menu-item" data-target="#top">回到最顶部</a></li>
+                <li style="--i:2;"><a href="#blog" class="menu-item" data-target="#blog">个人博客</a></li>
+                <li style="--i:3;"><a href="#projects" class="menu-item" data-target="#projects">开源项目</a></li>
+                <li style="--i:4;"><a href="#guestbook" class="menu-item" data-target="#guestbook">留言板</a></li>
+                <li style="--i:5;"><a href="#contact" class="menu-item" data-target="#contact">联系我</a></li>
+            </ul>
+        </nav>
+    </div>
+
+    <!-- 页面主体内容 -->
+    <main id="top">
+        <section class="hero content-section">
+            <h1 class="glitch-text" data-text="欢迎来到我的数字维度">欢迎来到我的数字维度</h1>
+            <p>现代 / 科技 / 极简</p>
+        </section>
+        
+        <section id="blog" class="content-section">
+            <h2><span class="highlight">01.</span> 个人博客</h2>
+            <p>分享技术文章与思考...</p>
+        </section>
+        
+        <section id="projects" class="content-section">
+            <h2><span class="highlight">02.</span> 开源项目</h2>
+            <p>造轮子与开源贡献...</p>
+        </section>
+        
+        <section id="guestbook" class="content-section">
+            <h2><span class="highlight">03.</span> 留言板</h2>
+            <p>留下你的脚印...</p>
+        </section>
+        
+        <section id="contact" class="content-section">
+            <h2><span class="highlight">04.</span> 联系我</h2>
+            <p>随时保持连接...</p>
+        </section>
+    </main>
+
+    <!-- 引入自定义脚本 -->
+    <script src="app.js"></script>
+</body>
+</html>
