@@ -3,71 +3,484 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>个人数字维度</title>
-    <!-- 引入自定义样式 -->
-    <link rel="stylesheet" href="style.css">
+    <title>数字维度 | 个人主页</title>
     
-    <!-- 引入 Google 字体 (Inter 现代字体) -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
-    
-    <!-- 引入 Lenis (平滑滚动) -->
-    <script src="https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
-    <!-- 引入 Particles.js (酷炫粒子背景) -->
-    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <!-- 引入外部库 (CDN) -->
+    <!-- GSAP: 用于顶级交互动画 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
+    <!-- Three.js: 用于高性能 3D 粒子背景 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.155.0/three.min.js"></script>
+
+    <style>
+        /* === 1. 基础样式设计 === */
+        :root {
+            --bg-color: #050505;
+            --accent-cyan: #00d4ff;
+            --accent-purple: #7000ff;
+            --text-main: #ffffff;
+            --text-dim: rgba(255, 255, 255, 0.6);
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            overflow-x: hidden;
+            height: 200vh; /* 增加页面高度以演示滚动交互 */
+        }
+
+        /* WebGL 画布容器 */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        /* === 2. UI 元素设计 === */
+        
+        /* 汉堡菜单按钮 */
+        .menu-toggle {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            width: 50px;
+            height: 50px;
+            z-index: 1001;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .menu-toggle:hover {
+            transform: scale(1.1);
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .hamburger-line {
+            width: 24px;
+            height: 2px;
+            background: var(--text-main);
+            margin: 3px 0;
+            transition: 0.4s ease;
+            border-radius: 2px;
+        }
+
+        /* 菜单激活时的叉显式动画 */
+        .menu-toggle.active .line-1 { transform: translateY(8px) rotate(45deg); }
+        .menu-toggle.active .line-2 { opacity: 0; transform: translateX(-10px); }
+        .menu-toggle.active .line-3 { transform: translateY(-8px) rotate(-45deg); }
+
+        /* 全屏菜单遮罩层 */
+        .menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 5, 0.9);
+            backdrop-filter: blur(0px); /* 由 GSAP 动态控制 */
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            visibility: hidden;
+            opacity: 0;
+        }
+
+        .menu-content {
+            text-align: center;
+        }
+
+        .menu-list {
+            list-style: none;
+        }
+
+        .menu-item {
+            margin: 25px 0;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        .menu-link {
+            text-decoration: none;
+            color: var(--text-main);
+            font-size: clamp(2rem, 8vw, 4rem);
+            font-weight: 800;
+            letter-spacing: -1px;
+            transition: all 0.3s ease;
+            position: relative;
+            display: inline-block;
+        }
+
+        .menu-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
+            transition: width 0.3s ease;
+        }
+
+        .menu-link:hover {
+            color: var(--accent-cyan);
+            text-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+        }
+
+        .menu-link:hover::after {
+            width: 100%;
+        }
+
+        /* 内容占位样式 */
+        .hero-section {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 0 10%;
+        }
+
+        .hero-title {
+            font-size: clamp(3rem, 10vw, 8rem);
+            font-weight: 900;
+            line-height: 0.9;
+            background: linear-gradient(to right, #fff, #666);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-sub {
+            font-size: 1.2rem;
+            color: var(--text-dim);
+            margin-top: 20px;
+            letter-spacing: 5px;
+            text-transform: uppercase;
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {transform: translateY(0) translateX(-50%);}
+            40% {transform: translateY(-10px) translateX(-50%);}
+            60% {transform: translateY(-5px) translateX(-50%);}
+        }
+
+        /* 底部信息 */
+        footer {
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background: linear-gradient(to bottom, transparent, #000);
+        }
+
+    </style>
 </head>
 <body>
-    <!-- 粒子背景层 -->
-    <div id="particles-js"></div>
 
-    <!-- 左上角汉堡菜单按钮 -->
-    <div class="menu-btn" id="menu-btn">
-        <span class="bar"></span>
-        <span class="bar"></span>
-        <span class="bar"></span>
+    <!-- WebGL 背景容器 -->
+    <div id="canvas-container"></div>
+
+    <!-- 顶部导航触发器 -->
+    <div class="menu-toggle" id="menuToggle">
+        <div class="hamburger-line line-1"></div>
+        <div class="hamburger-line line-2"></div>
+        <div class="hamburger-line line-3"></div>
     </div>
 
     <!-- 全屏遮罩菜单 -->
-    <div class="menu-overlay" id="menu-overlay">
-        <nav class="nav-links">
-            <ul id="menu-list">
-                <li style="--i:1;"><a href="#top" class="menu-item" data-target="#top">回到最顶部</a></li>
-                <li style="--i:2;"><a href="#blog" class="menu-item" data-target="#blog">个人博客</a></li>
-                <li style="--i:3;"><a href="#projects" class="menu-item" data-target="#projects">开源项目</a></li>
-                <li style="--i:4;"><a href="#guestbook" class="menu-item" data-target="#guestbook">留言板</a></li>
-                <li style="--i:5;"><a href="#contact" class="menu-item" data-target="#contact">联系我</a></li>
+    <div class="menu-overlay" id="menuOverlay">
+        <div class="menu-content">
+            <ul class="menu-list">
+                <!-- 【可修改部分：菜单文字】 -->
+                <li class="menu-item"><a href="#" class="menu-link" data-target="top">回到最顶部</a></li>
+                <li class="menu-item"><a href="#" class="menu-link">个人博客</a></li>
+                <li class="menu-item"><a href="#" class="menu-link">开源项目</a></li>
+                <li class="menu-item"><a href="#" class="menu-link">留言板</a></li>
+                <li class="menu-item"><a href="#" class="menu-link">联系我</a></li>
             </ul>
-        </nav>
+        </div>
     </div>
 
-    <!-- 页面主体内容 -->
-    <main id="top">
-        <section class="hero content-section">
-            <h1 class="glitch-text" data-text="欢迎来到我的数字维度">欢迎来到我的数字维度</h1>
-            <p>现代 / 科技 / 极简</p>
+    <!-- 页面主体 -->
+    <main>
+        <section class="hero-section">
+            <!-- 【可修改部分：主标题】 -->
+            <h1 class="hero-title">CREATIVE<br>DIMENSION.</h1>
+            <p class="hero-sub">探索数字艺术与代码的边界</p>
+            <div class="scroll-hint">向下滑动探索更多</div>
         </section>
-        
-        <section id="blog" class="content-section">
-            <h2><span class="highlight">01.</span> 个人博客</h2>
-            <p>分享技术文章与思考...</p>
+
+        <!-- 增加一个长区域用于演示滚动 -->
+        <section style="height: 100vh; padding: 10%; display: flex; align-items: center;">
+            <div style="max-width: 600px;">
+                <h2 style="font-size: 3rem; margin-bottom: 20px; color: var(--accent-cyan);">极简·极致</h2>
+                <p style="color: var(--text-dim); line-height: 1.6; font-size: 1.1rem;">
+                    这是一个融合了 3D 物理交互与现代动效设计的个人空间。
+                    在这里，每一个粒子都承载着代码的逻辑，每一次滑动都是一次深度的交互体验。
+                </p>
+            </div>
         </section>
-        
-        <section id="projects" class="content-section">
-            <h2><span class="highlight">02.</span> 开源项目</h2>
-            <p>造轮子与开源贡献...</p>
-        </section>
-        
-        <section id="guestbook" class="content-section">
-            <h2><span class="highlight">03.</span> 留言板</h2>
-            <p>留下你的脚印...</p>
-        </section>
-        
-        <section id="contact" class="content-section">
-            <h2><span class="highlight">04.</span> 联系我</h2>
-            <p>随时保持连接...</p>
-        </section>
+
+        <footer>
+            <div>
+                <h3 style="font-size: 2rem; margin-bottom: 10px;">抵达终点</h3>
+                <p style="color: var(--text-dim);">触发全屏菜单了解更多</p>
+            </div>
+        </footer>
     </main>
 
-    <!-- 引入自定义脚本 -->
-    <script src="app.js"></script>
+    <script>
+        /**
+         * === 3. THREE.JS 粒子系统实现 ===
+         */
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // 粒子配置
+        const particlesCount = 6000;
+        const positions = new Float32Array(particlesCount * 3);
+        const originalPositions = new Float32Array(particlesCount * 3); // 用于恢复初始状态
+        const colors = new Float32Array(particlesCount * 3);
+        const sizes = new Float32Array(particlesCount);
+
+        const colorCyan = new THREE.Color("#00d4ff");
+        const colorPurple = new THREE.Color("#7000ff");
+
+        for (let i = 0; i < particlesCount; i++) {
+            // 随机分布在球体/盒子里
+            const x = (Math.random() - 0.5) * 40;
+            const y = (Math.random() - 0.5) * 40;
+            const z = (Math.random() - 0.5) * 40;
+
+            positions[i * 3] = x;
+            positions[i * 3 + 1] = y;
+            positions[i * 3 + 2] = z;
+
+            originalPositions[i * 3] = x;
+            originalPositions[i * 3 + 1] = y;
+            originalPositions[i * 3 + 2] = z;
+
+            // 颜色渐变逻辑
+            const mixedColor = colorCyan.clone().lerp(colorPurple, Math.random());
+            colors[i * 3] = mixedColor.r;
+            colors[i * 3 + 1] = mixedColor.g;
+            colors[i * 3 + 2] = mixedColor.b;
+
+            sizes[i] = Math.random() * 2;
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const material = new THREE.PointsMaterial({
+            size: 0.12,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending,
+            sizeAttenuation: true
+        });
+
+        const particles = new THREE.Points(geometry, material);
+        scene.add(particles);
+
+        camera.position.z = 15;
+
+        // 鼠标交互控制
+        const mouse = new THREE.Vector2(-999, -999);
+        const raycaster = new THREE.Raycaster();
+
+        window.addEventListener('mousemove', (event) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        // 窗口缩放适配
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        /**
+         * === 4. 动画循环与物理交互逻辑 ===
+         */
+        const clock = new THREE.Clock();
+
+        function animate() {
+            const elapsedTime = clock.getElapsedTime();
+            
+            // 基础布朗运动
+            particles.rotation.y = elapsedTime * 0.05;
+            particles.rotation.x = elapsedTime * 0.02;
+
+            const positionAttribute = geometry.getAttribute('position');
+            
+            // 鼠标位置在 3D 空间的映射（简单平面模拟）
+            const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5);
+            vector.unproject(camera);
+            const dir = vector.sub(camera.position).normalize();
+            const distance = -camera.position.z / dir.z;
+            const mouse3D = camera.position.clone().add(dir.multiplyScalar(distance));
+
+            for (let i = 0; i < particlesCount; i++) {
+                let px = originalPositions[i * 3];
+                let py = originalPositions[i * 3 + 1];
+                let pz = originalPositions[i * 3 + 2];
+
+                // 计算粒子当前点与鼠标 3D 位置的距离
+                const dx = positionAttribute.getX(i) - mouse3D.x;
+                const dy = positionAttribute.getY(i) - mouse3D.y;
+                const dz = positionAttribute.getZ(i) - mouse3D.z;
+                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+                // 排斥力逻辑
+                if (dist < 3) {
+                    const force = (3 - dist) / 3;
+                    px += (dx / dist) * force * 5;
+                    py += (dy / dist) * force * 5;
+                }
+
+                // 平滑回归 (lerp)
+                const currentX = positionAttribute.getX(i);
+                const currentY = positionAttribute.getY(i);
+                const currentZ = positionAttribute.getZ(i);
+
+                positionAttribute.setX(i, THREE.MathUtils.lerp(currentX, px, 0.1));
+                positionAttribute.setY(i, THREE.MathUtils.lerp(currentY, py, 0.1));
+                positionAttribute.setZ(i, THREE.MathUtils.lerp(currentZ, pz, 0.1));
+            }
+            
+            positionAttribute.needsUpdate = true;
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        /**
+         * === 5. GSAP 交互动画与菜单逻辑 ===
+         */
+        const menuToggle = document.getElementById('menuToggle');
+        const menuOverlay = document.getElementById('menuOverlay');
+        const menuItems = document.querySelectorAll('.menu-item');
+        let isMenuOpen = false;
+
+        // 菜单切换动画
+        function toggleMenu(forceState) {
+            const state = typeof forceState === 'boolean' ? forceState : !isMenuOpen;
+            if (state === isMenuOpen) return;
+            
+            isMenuOpen = state;
+            menuToggle.classList.toggle('active', isMenuOpen);
+
+            if (isMenuOpen) {
+                gsap.to(menuOverlay, { 
+                    autoAlpha: 1, 
+                    backdropFilter: "blur(20px)", 
+                    duration: 0.8, 
+                    ease: "power4.out",
+                    display: 'flex'
+                });
+                
+                // 菜单选项交错飞入
+                gsap.to(menuItems, {
+                    y: 0,
+                    opacity: 1,
+                    stagger: 0.1,
+                    duration: 0.6,
+                    ease: "back.out(1.7)",
+                    delay: 0.2
+                });
+            } else {
+                gsap.to(menuItems, {
+                    y: 30,
+                    opacity: 0,
+                    stagger: -0.05,
+                    duration: 0.4,
+                    ease: "power2.in"
+                });
+
+                gsap.to(menuOverlay, { 
+                    autoAlpha: 0, 
+                    backdropFilter: "blur(0px)", 
+                    duration: 0.6, 
+                    ease: "power4.in",
+                    onComplete: () => {
+                        menuOverlay.style.display = 'none';
+                    }
+                });
+            }
+        }
+
+        menuToggle.addEventListener('click', () => toggleMenu());
+
+        // 触底自动弹出菜单逻辑
+        window.addEventListener('scroll', () => {
+            const scrollPercent = (window.innerHeight + window.scrollY) / document.body.offsetHeight;
+            if (scrollPercent > 0.99 && !isMenuOpen) {
+                toggleMenu(true);
+            }
+        });
+
+        // 回到顶部与平滑跳转
+        document.querySelectorAll('.menu-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const target = link.getAttribute('data-target');
+                
+                if (target === 'top') {
+                    gsap.to(window, { 
+                        scrollTo: 0, 
+                        duration: 1.5, 
+                        ease: "power4.inOut",
+                        onStart: () => toggleMenu(false)
+                    });
+                } else {
+                    // 其他链接可以跳转到具体的 URL 或者 Section
+                    toggleMenu(false);
+                }
+            });
+        });
+
+    </script>
 </body>
 </html>
