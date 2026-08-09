@@ -7,6 +7,7 @@ name = "blog-admin-api"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
 workers_dev = true
+account_id = "21f7852eb8e1bc6ca77f23ddcc11faf0"
 
 [vars]
 GITHUB_REPO_OWNER = "ryanchiang200"
@@ -18,5 +19,5 @@ WORKFLOW_FILE = "deploy.yml"
 [[d1_databases]]
 binding = "DB"
 database_name = "blog-db"
-database_id = "REPLACE_WITH_DATABASE_ID"
+database_id = "b1a6db1d-edae-46bc-9212-1b81bed99d4a"
 migrations_dir = "migrations"
