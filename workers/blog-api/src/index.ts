@@ -1,85 +1,92 @@
-/** 博客文章上传存储 API —— Cloudflare Worker + Hono */
+/** 博客文章上传存储 API —— Cloudflare Worker + Hono（D1 存储） */
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { requireAuth, type Env } from './auth';
-import { listPostFiles, readPost, upsertPost, deletePost, ApiError } from './github';
-import { buildMarkdown, parseFrontmatter, validate, type ArticleInput } from './article';
-import { ADMIN_PAGE } from './admin-page';
+import { listPosts, getPost, upsertPost, deletePost } from './db';
+import { triggerRebuild } from './rebuild';
+import { validate, type ArticleInput } from './article';
 
 const app = new Hono<{ Bindings: Env }>();
 
 app.use(
   '/api/*',
-  cors({ origin: '*', allowHeaders: ['Content-Type', 'Authorization'], allowMethods: ['GET', 'POST', 'DELETE'] })
+  cors({
+    origin: '*',
+    allowHeaders: ['Content-Type', 'Authorization'],
+    allowMethods: ['GET', 'POST', 'DELETE'],
+  })
 );
 
-/** 简易管理页（无需认证即可打开，写操作仍需 token） */
-app.get('/', (c) => c.html(ADMIN_PAGE));
+/** API 状态说明 */
+app.get('/', (c) =>
+  c.json({
+    name: 'blog-admin-api',
+    description: '博客文章上传存储 API',
+    endpoints: [
+      { method: 'GET', path: '/api/public/posts', auth: false, note: '已发布文章（构建时同步用）' },
+      { method: 'GET', path: '/api/posts', auth: true, note: '管理端文章列表' },
+      { method: 'GET', path: '/api/posts/:slug', auth: true, note: '读取单篇' },
+      { method: 'POST', path: '/api/posts', auth: true, note: '创建 / 更新文章' },
+      { method: 'DELETE', path: '/api/posts/:slug', auth: true, note: '删除文章' },
+    ],
+  })
+);
 
-/** 文章列表：读取所有 .md 的 frontmatter */
-app.get('/api/posts', requireAuth, async (c) => {
+/** 公开：已发布文章全量（构建时同步用） */
+app.get('/api/public/posts', async (c) => {
   try {
-    const env = c.env;
-    const files = await listPostFiles(env);
-    const posts = await Promise.all(
-      files.map(async (f) => {
-        const slug = f.name.replace(/\.md$/, '');
-        const md = await readPost(env, slug);
-        const fm = md ? parseFrontmatter(md) : {};
-        return {
-          slug,
-          title: fm.title ?? slug,
-          pubDate: fm.pubDate ?? '',
-          draft: md?.includes('draft: true') ?? false,
-        };
-      })
-    );
-    posts.sort((a, b) => (a.pubDate < b.pubDate ? 1 : a.pubDate > b.pubDate ? -1 : 0));
+    const posts = await listPosts(c.env, { publishedOnly: true });
     return c.json(posts);
   } catch (e) {
     return handleError(c, e);
   }
 });
 
-/** 读取单篇文章（含解析后的 frontmatter 与原文） */
-app.get('/api/posts/:slug', requireAuth, async (c) => {
+/** 管理：文章列表（含草稿） */
+app.get('/api/posts', requireAuth, async (c) => {
   try {
-    const env = c.env;
-    const slug = c.req.param('slug');
-    const md = await readPost(env, slug);
-    if (md === null) return c.json({ error: '文章不存在' }, 404);
-    const fm = parseFrontmatter(md);
-    // 提取正文（去掉 frontmatter）
-    const body = md.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
-    return c.json({
-      slug,
-      title: fm.title ?? '',
-      pubDate: fm.pubDate ?? '',
-      content: body.trim(),
-    });
+    return c.json(await listPosts(c.env));
   } catch (e) {
     return handleError(c, e);
   }
 });
 
-/** 创建 / 更新文章 */
+/** 管理：读取单篇 */
+app.get('/api/posts/:slug', requireAuth, async (c) => {
+  try {
+    const post = await getPost(c.env, c.req.param('slug')!);
+    if (!post) return c.json({ error: '文章不存在' }, 404);
+    return c.json(post);
+  } catch (e) {
+    return handleError(c, e);
+  }
+});
+
+/** 管理：创建 / 更新文章（写入 D1 后触发重建） */
 app.post('/api/posts', requireAuth, async (c) => {
   try {
-    const env = c.env;
     const input = (await c.req.json()) as ArticleInput;
-
     const err = validate(input);
     if (err) return c.json({ error: err }, 400);
 
-    const markdown = buildMarkdown(input);
-    const { created } = await upsertPost(env, input.slug, markdown, { replace: true });
+    const { created } = await upsertPost(c.env, {
+      slug: input.slug,
+      title: input.title,
+      description: input.description,
+      pubDate: input.pubDate,
+      tags: input.tags,
+      category: input.category ?? '',
+      draft: !!input.draft,
+      content: input.content,
+    });
 
+    const rebuild = await triggerRebuild(c.env);
     return c.json(
       {
         ok: true,
         slug: input.slug,
         created,
-        note: '已提交到 GitHub，构建发布大约需要 1-2 分钟',
+        build: rebuild.message,
       },
       created ? 201 : 200
     );
@@ -88,25 +95,24 @@ app.post('/api/posts', requireAuth, async (c) => {
   }
 });
 
-/** 删除文章 */
+/** 管理：删除文章 */
 app.delete('/api/posts/:slug', requireAuth, async (c) => {
   try {
-    const env = c.env;
-    const slug = c.req.param('slug');
-    const deleted = await deletePost(env, slug);
+    const deleted = await deletePost(c.env, c.req.param('slug')!);
     if (!deleted) return c.json({ error: '文章不存在' }, 404);
-    return c.json({ ok: true, slug });
+    const rebuild = await triggerRebuild(c.env);
+    return c.json({ ok: true, build: rebuild.message });
   } catch (e) {
     return handleError(c, e);
   }
 });
 
 function handleError(c: any, e: unknown) {
-  if (e instanceof ApiError) {
-    return c.json({ error: e.message }, e.status >= 500 ? 502 : e.status);
-  }
   console.error(e);
-  return c.json({ error: '服务器内部错误' }, 500);
+  return c.json(
+    { error: e instanceof Error ? e.message : '服务器内部错误' },
+    500
+  );
 }
 
 export default app;

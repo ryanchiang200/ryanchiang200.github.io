@@ -30,6 +30,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Sync content from API
+        run: npm run sync
+        env:
+          CONTENT_API_URL: ${{ secrets.CONTENT_API_URL }}
+
       - name: Build
         run: npm run build
 

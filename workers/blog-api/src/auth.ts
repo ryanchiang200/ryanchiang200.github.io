@@ -7,7 +7,8 @@ export interface Env {
   GITHUB_REPO_OWNER: string;
   GITHUB_REPO: string;
   GITHUB_BRANCH: string;
-  BLOG_DIR: string;
+  WORKFLOW_FILE: string;
+  DB: D1Database;
 }
 
 export async function requireAuth(c: Context, next: Next) {

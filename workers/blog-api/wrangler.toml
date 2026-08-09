@@ -1,7 +1,7 @@
-# Cloudflare Worker 配置 —— 博客文章上传存储 API
-# 部署前必须设置 secrets（见 README）：
-#   wrangler secret put GITHUB_TOKEN   # 有 Contents 写权限的 PAT
-#   wrangler secret put ADMIN_TOKEN    # 管理端登录密钥
+# 博客文章上传存储 API —— Cloudflare Worker
+# 部署前必须设置 secrets：
+#   wrangler secret put ADMIN_TOKEN   # 管理端登录密钥
+#   wrangler secret put GITHUB_TOKEN  # 有 actions 写权限的 PAT，用于触发重建
 
 name = "blog-admin-api"
 main = "src/index.ts"
@@ -12,4 +12,11 @@ workers_dev = true
 GITHUB_REPO_OWNER = "ryanchiang200"
 GITHUB_REPO = "ryanchiang200.github.io"
 GITHUB_BRANCH = "main"
-BLOG_DIR = "src/content/blog"
+WORKFLOW_FILE = "deploy.yml"
+
+# D1 数据库（database_id 由 `wrangler d1 create blog-db` 生成后回填）
+[[d1_databases]]
+binding = "DB"
+database_name = "blog-db"
+database_id = "REPLACE_WITH_DATABASE_ID"
+migrations_dir = "migrations"

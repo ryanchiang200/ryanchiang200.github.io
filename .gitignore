@@ -7,3 +7,9 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+
+# Wrangler 本地开发变量（含密钥，勿提交）
+.dev.vars
+
+# Wrangler 本地状态（D1 SQLite 等）
+.wrangler/
