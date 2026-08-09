@@ -1,5 +1,5 @@
 ---
-import { SITE, NAV_LINKS } from '@lib/consts';
+import { SITE } from '@lib/consts';
 ---
 
 <section class="section-container section-padding flex flex-col items-center text-center">
@@ -8,23 +8,14 @@ import { SITE, NAV_LINKS } from '@lib/consts';
     class="font-serif text-4xl sm:text-5xl lg:text-6xl font-black text-warm-900
            leading-tight tracking-tight text-balance opacity-0 animate-fade-in-up"
   >
-    {SITE.title}
+    {SITE.heroTitle}
   </h1>
-
-  <!-- Subtitle -->
-  <p
-    class="mt-6 max-w-lg text-lg sm:text-xl text-warm-800/60 leading-relaxed
-           opacity-0 animate-fade-in-up"
-    style="animation-delay: 0.15s"
-  >
-    {SITE.description}
-  </p>
 
   <!-- CTA Buttons -->
   <div
-    class="mt-10 flex flex-wrap items-center justify-center gap-4
+    class="mt-8 flex flex-wrap items-center justify-center gap-4
            opacity-0 animate-fade-in-up"
-    style="animation-delay: 0.3s"
+    style="animation-delay: 0.2s"
   >
     <a
       href="/blog"

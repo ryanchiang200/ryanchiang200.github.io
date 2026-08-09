@@ -19,7 +19,7 @@
 
 @layer components {
   .section-container {
-    @apply mx-auto max-w-4xl px-6 sm:px-8 lg:px-12;
+    @apply mx-auto max-w-3xl px-6 sm:px-8;
   }
 
   .section-padding {
@@ -41,5 +41,28 @@
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+/* ─── View Transitions ─── */
+::view-transition-old(root) {
+  animation: 200ms ease-in both view-old;
+}
+
+::view-transition-new(root) {
+  animation: 260ms ease-out both view-new;
+}
+
+@keyframes view-old {
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes view-new {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
   }
 }

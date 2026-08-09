@@ -1,5 +1,6 @@
 export const SITE = {
-  title: '山川湖海，代码与诗',
+  title: 'Ryan 的博客',
+  heroTitle: 'Hello，欢迎来到我的博客',
   description: '一个记录技术、登山与生活的地方',
   url: 'https://ryanchiang200.github.io',
   author: 'Ryan',
@@ -18,28 +19,24 @@ export const CONTENT_SECTIONS = [
   {
     emoji: '📝',
     title: '博客',
-    desc: '技术·登山·随笔',
     href: '/blog',
     available: true,
   },
   {
     emoji: '🚀',
     title: '项目',
-    desc: '作品展示',
     href: '/projects',
     available: false,
   },
   {
     emoji: '💻',
     title: '软件',
-    desc: '工具分享',
     href: '/software',
     available: false,
   },
   {
     emoji: '📷',
     title: '画廊',
-    desc: '摄影·见闻',
     href: '/gallery',
     available: false,
   },
