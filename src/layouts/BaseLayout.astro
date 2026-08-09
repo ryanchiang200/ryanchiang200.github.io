@@ -1,19 +1,21 @@
 ---
 import { SITE, NAV_LINKS, SOCIAL_LINKS } from '@lib/consts';
 import { ViewTransitions } from 'astro:transitions';
+import Seo from '@components/Seo.astro';
 import '@styles/global.css';
 
 export interface Props {
   title?: string;
   description?: string;
+  /** SEO 附加信息，传给 Seo 组件 */
+  seo?: Record<string, any>;
 }
 
 const {
   title,
   description = SITE.description,
+  seo = {},
 } = Astro.props;
-
-const fullTitle = title ? `${title} — ${SITE.title}` : SITE.title;
 ---
 <!doctype html>
 <html lang="zh-CN">
@@ -21,15 +23,8 @@ const fullTitle = title ? `${title} — ${SITE.title}` : SITE.title;
     <ViewTransitions />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content={description} />
-    <meta name="author" content={SITE.author} />
 
-    <!-- Open Graph -->
-    <meta property="og:title" content={fullTitle} />
-    <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content={SITE.url} />
-    <meta property="og:site_name" content={SITE.title} />
+    <Seo title={title} description={description} {...seo} />
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -41,8 +36,6 @@ const fullTitle = title ? `${title} — ${SITE.title}` : SITE.title;
       href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&display=swap"
       rel="stylesheet"
     />
-
-    <title>{fullTitle}</title>
   </head>
   <body class="min-h-screen flex flex-col">
     <!-- Header -->

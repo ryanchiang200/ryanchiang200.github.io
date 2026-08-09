@@ -16,9 +16,15 @@ type Props = {
 
 const { post } = Astro.props;
 const { Content } = await post.render();
+
+const seo = {
+  type: 'article',
+  publishedTime: post.data.pubDate.toISOString(),
+  tags: post.data.tags,
+};
 ---
 
-<BaseLayout title={post.data.title} description={post.data.description}>
+<BaseLayout title={post.data.title} description={post.data.description} seo={seo}>
   <article class="section-container section-padding">
     <!-- Header -->
     <header class="mb-12">

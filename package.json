@@ -6,10 +6,14 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro build",
+    "check": "astro check",
+    "build:preview": "astro build && astro preview",
     "preview": "astro preview"
   },
   "dependencies": {
     "@astrojs/react": "^4.2.0",
+    "@astrojs/rss": "^4.0.19",
+    "@astrojs/sitemap": "^3.7.3",
     "@astrojs/tailwind": "^5.1.0",
     "@tailwindcss/typography": "^0.5.15",
     "astro": "^5.0.0",

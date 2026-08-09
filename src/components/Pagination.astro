@@ -1,0 +1,54 @@
+---
+import type { Page } from 'astro';
+import type { CollectionEntry } from 'astro:content';
+
+export interface Props {
+  page: Page<CollectionEntry<'blog'>>;
+}
+
+const { page } = Astro.props;
+const { url, currentPage, lastPage } = page;
+
+if (lastPage <= 1) {
+  return;
+}
+---
+
+<nav
+  class="mt-12 flex items-center justify-between gap-4 text-sm"
+  aria-label="分页导航"
+>
+  {
+    url.prev ? (
+      <a
+        href={url.prev}
+        class="inline-flex items-center gap-1 text-warm-800/60 hover:text-accent transition-colors"
+      >
+        <span aria-hidden="true">←</span> 上一页
+      </a>
+    ) : (
+      <span class="inline-flex items-center gap-1 text-warm-800/25 select-none">
+        <span aria-hidden="true">←</span> 上一页
+      </span>
+    )
+  }
+
+  <span class="text-warm-800/40 tabular-nums">
+    第 {currentPage} / {lastPage} 页
+  </span>
+
+  {
+    url.next ? (
+      <a
+        href={url.next}
+        class="inline-flex items-center gap-1 text-warm-800/60 hover:text-accent transition-colors"
+      >
+        下一页 <span aria-hidden="true">→</span>
+      </a>
+    ) : (
+      <span class="inline-flex items-center gap-1 text-warm-800/25 select-none">
+        下一页 <span aria-hidden="true">→</span>
+      </span>
+    )
+  }
+</nav>

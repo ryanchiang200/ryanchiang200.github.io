@@ -1,5 +1,6 @@
 ---
 import type { CollectionEntry } from 'astro:content';
+import PostListItem from '@components/PostListItem.astro';
 
 export interface Props {
   posts: CollectionEntry<'blog'>[];
@@ -33,35 +34,7 @@ const { posts } = Astro.props;
       </div>
     ) : (
       <div class="space-y-1">
-        {posts.map((post) => (
-          <a
-            href={`/blog/${post.slug}`}
-            class="group flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6
-                   rounded-xl px-4 py-4 -mx-4
-                   transition-colors duration-150 hover:bg-warm-100"
-          >
-            <time
-              class="shrink-0 text-sm text-warm-800/40 tabular-nums"
-              datetime={post.data.pubDate.toISOString()}
-            >
-              {post.data.pubDate.toLocaleDateString('zh-CN', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </time>
-            <span class="font-medium text-warm-800 group-hover:text-accent transition-colors leading-snug">
-              {post.data.title}
-            </span>
-            <div class="hidden sm:flex items-center gap-2 ml-auto shrink-0">
-              {post.data.tags?.slice(0, 2).map((tag: string) => (
-                <span class="text-xs text-warm-800/30 bg-warm-200/50 px-2 py-0.5 rounded-full">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </a>
-        ))}
+        {posts.map((post) => <PostListItem post={post} />)}
       </div>
     )
   }
