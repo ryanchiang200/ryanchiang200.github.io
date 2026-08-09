@@ -4,6 +4,7 @@ import { getCollection } from 'astro:content';
 import BaseLayout from '@layouts/BaseLayout.astro';
 import PostListItem from '@components/PostListItem.astro';
 import Pagination from '@components/Pagination.astro';
+import CategoryNav from '@components/CategoryNav.astro';
 import { BLOG_POSTS_PER_PAGE } from '@lib/consts';
 
 export async function getStaticPaths({ paginate }: GetStaticPathsOptions) {
@@ -25,6 +26,10 @@ const { page } = Astro.props;
     <p class="mt-3 text-warm-800/50">
       技术 · 登山 · 随笔
     </p>
+
+    <div class="mt-8">
+      <CategoryNav />
+    </div>
 
     {
       page.data.length === 0 ? (

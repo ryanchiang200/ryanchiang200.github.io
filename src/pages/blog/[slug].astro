@@ -1,6 +1,7 @@
 ---
 import { getCollection, type CollectionEntry } from 'astro:content';
 import BaseLayout from '@layouts/BaseLayout.astro';
+import { formatDate } from '@lib/formatDate';
 
 export async function getStaticPaths() {
   const posts = await getCollection('blog');
@@ -33,11 +34,7 @@ const seo = {
       </h1>
       <div class="mt-4 flex flex-wrap items-center gap-4 text-sm text-warm-800/40">
         <time datetime={post.data.pubDate.toISOString()}>
-          {post.data.pubDate.toLocaleDateString('zh-CN', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          })}
+          {formatDate(post.data.pubDate)}
         </time>
         {post.data.tags && post.data.tags.length > 0 && (
           <div class="flex items-center gap-2">

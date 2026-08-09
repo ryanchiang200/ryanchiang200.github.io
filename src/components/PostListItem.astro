@@ -2,6 +2,7 @@
 import type { CollectionEntry } from 'astro:content';
 import { CATEGORY_LABELS } from '@lib/consts';
 import { readingTime } from '@lib/readingTime';
+import { formatDate } from '@lib/formatDate';
 
 export interface Props {
   post: CollectionEntry<'blog'>;
@@ -24,11 +25,7 @@ const minutes = readingTime(post.body);
     class="shrink-0 text-sm text-warm-800/40 tabular-nums"
     datetime={post.data.pubDate.toISOString()}
   >
-    {post.data.pubDate.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    })}
+    {formatDate(post.data.pubDate)}
   </time>
 
   <div class="flex-1 min-w-0">

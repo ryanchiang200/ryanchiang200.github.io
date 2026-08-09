@@ -1,0 +1,15 @@
+# Cloudflare Worker 配置 —— 博客文章上传存储 API
+# 部署前必须设置 secrets（见 README）：
+#   wrangler secret put GITHUB_TOKEN   # 有 Contents 写权限的 PAT
+#   wrangler secret put ADMIN_TOKEN    # 管理端登录密钥
+
+name = "blog-admin-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+workers_dev = true
+
+[vars]
+GITHUB_REPO_OWNER = "ryanchiang200"
+GITHUB_REPO = "ryanchiang200.github.io"
+GITHUB_BRANCH = "main"
+BLOG_DIR = "src/content/blog"

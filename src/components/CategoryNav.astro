@@ -1,0 +1,40 @@
+---
+import { CATEGORY_LABELS } from '@lib/consts';
+
+export interface Props {
+  /** 当前激活的分类 key，null 或省略表示「全部」 */
+  current?: string | null;
+}
+
+const { current = null } = Astro.props;
+
+const items = [
+  { key: null as string | null, label: '全部', href: '/blog' },
+  ...Object.entries(CATEGORY_LABELS).map(([key, label]) => ({
+    key,
+    label,
+    href: `/blog/category/${key}`,
+  })),
+];
+---
+
+<nav class="flex items-center gap-2 flex-wrap" aria-label="分类筛选">
+  {
+    items.map((item) => {
+      const active = item.key === current;
+      return (
+        <a
+          href={item.href}
+          class:list={[
+            'rounded-full px-4 py-1.5 text-sm transition-colors duration-150',
+            active
+              ? 'bg-accent text-warm-50 font-medium'
+              : 'bg-warm-100 text-warm-800/60 hover:bg-warm-200/60 hover:text-warm-800',
+          ]}
+        >
+          {item.label}
+        </a>
+      );
+    })
+  }
+</nav>
