@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .card {
+    @apply bg-white border border-warm-200 rounded-2xl p-6 shadow-sm;
+  }
+  .input {
+    @apply w-full rounded-xl border border-warm-200 bg-white px-3 py-2.5 text-sm
+           text-warm-900 placeholder:text-warm-800/30 focus:outline-none
+           focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors;
+  }
+  .label {
+    @apply block mt-4 mb-1 text-sm text-warm-800/60;
+  }
+  .btn-primary {
+    @apply rounded-xl bg-accent px-5 py-2.5 text-sm text-white font-medium
+           hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors;
+  }
+  .btn-ghost {
+    @apply rounded-xl bg-transparent px-4 py-2 text-sm text-accent font-medium
+           border border-accent hover:bg-accent/10 transition-colors;
+  }
+}
