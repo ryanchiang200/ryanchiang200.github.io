@@ -1,0 +1,32 @@
+---
+import { CONTENT_SECTIONS } from '@lib/consts';
+---
+
+<section class="section-container py-16 sm:py-20">
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+    {
+      CONTENT_SECTIONS.map((section) => (
+        <a
+          href={section.available ? section.href : '#'}
+          class={`
+            group card flex flex-col items-center text-center gap-3 py-8
+            ${section.available
+              ? 'cursor-pointer'
+              : 'cursor-default opacity-50 select-none pointer-events-none'
+            }
+          `}
+        >
+          <span class="text-3xl sm:text-4xl transition-transform duration-300 group-hover:scale-110">
+            {section.emoji}
+          </span>
+          <h3 class="font-serif text-lg font-bold text-warm-900">
+            {section.title}
+          </h3>
+          <p class="text-sm text-warm-800/50 leading-relaxed">
+            {section.available ? section.desc : '即将上线'}
+          </p>
+        </a>
+      ))
+    }
+  </div>
+</section>

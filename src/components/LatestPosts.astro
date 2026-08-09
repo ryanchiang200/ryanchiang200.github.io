@@ -1,0 +1,76 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+export interface Props {
+  posts: CollectionEntry<'blog'>[];
+}
+
+const { posts } = Astro.props;
+---
+
+<section class="section-container py-16 sm:py-20">
+  <div class="flex items-end justify-between mb-10">
+    <div>
+      <h2 class="font-serif text-2xl sm:text-3xl font-bold text-warm-900">
+        最新文章
+      </h2>
+      <p class="mt-2 text-sm text-warm-800/50">
+        所思所想，记录于此
+      </p>
+    </div>
+    <a
+      href="/blog"
+      class="hidden sm:inline-flex text-sm font-medium text-accent hover:text-accent-hover transition-colors"
+    >
+      查看全部 →
+    </a>
+  </div>
+
+  {
+    posts.length === 0 ? (
+      <div class="card text-center py-12">
+        <p class="text-warm-800/40 text-sm">还没有文章，稍后再来 ✨</p>
+      </div>
+    ) : (
+      <div class="space-y-1">
+        {posts.map((post) => (
+          <a
+            href={`/blog/${post.slug}`}
+            class="group flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6
+                   rounded-xl px-4 py-4 -mx-4
+                   transition-colors duration-150 hover:bg-warm-100"
+          >
+            <time
+              class="shrink-0 text-sm text-warm-800/40 tabular-nums"
+              datetime={post.data.pubDate.toISOString()}
+            >
+              {post.data.pubDate.toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </time>
+            <span class="font-medium text-warm-800 group-hover:text-accent transition-colors leading-snug">
+              {post.data.title}
+            </span>
+            <div class="hidden sm:flex items-center gap-2 ml-auto shrink-0">
+              {post.data.tags?.slice(0, 2).map((tag: string) => (
+                <span class="text-xs text-warm-800/30 bg-warm-200/50 px-2 py-0.5 rounded-full">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </a>
+        ))}
+      </div>
+    )
+  }
+
+  <!-- Mobile "view all" link -->
+  <a
+    href="/blog"
+    class="sm:hidden mt-6 inline-flex text-sm font-medium text-accent"
+  >
+    查看全部 →
+  </a>
+</section>

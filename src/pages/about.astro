@@ -1,0 +1,51 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { SITE } from '@lib/consts';
+---
+
+<BaseLayout title="关于">
+  <section class="section-container section-padding">
+    <h1 class="font-serif text-3xl sm:text-4xl font-black text-warm-900">
+      关于
+    </h1>
+
+    <div class="mt-12 max-w-2xl space-y-8 text-warm-800/70 leading-relaxed">
+      <p>
+        这里是一个记录技术、登山与生活的地方。
+      </p>
+
+      <p>
+        喜欢爬山，也喜欢写代码。在山上思考代码，在代码里想念山。
+      </p>
+
+      <p>
+        这个网站没有评论区、没有点赞数、没有访问量展示——只是一个安静阅读和写作的空间。如果你对某篇文章有想法，欢迎发邮件交流。
+      </p>
+
+      <div class="mt-12 pt-8 border-t border-warm-200">
+        <h2 class="font-serif text-lg font-bold text-warm-900 mb-4">联系方式</h2>
+        <ul class="space-y-2 text-sm">
+          <li>
+            <span class="text-warm-800/40">GitHub:</span>{' '}
+            <a
+              href="https://github.com/ryanchiang200"
+              class="text-accent hover:text-accent-hover transition-colors"
+              target="_blank" rel="noopener noreferrer"
+            >
+              @ryanchiang200
+            </a>
+          </li>
+          <li>
+            <span class="text-warm-800/40">邮箱:</span>{' '}
+            <a
+              href="mailto:contact@example.com"
+              class="text-accent hover:text-accent-hover transition-colors"
+            >
+              contact@example.com
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

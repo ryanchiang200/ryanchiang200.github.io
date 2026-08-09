@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-warm-50 text-warm-800 antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  ::selection {
+    @apply bg-accent-light text-warm-900;
+  }
+}
+
+@layer components {
+  .section-container {
+    @apply mx-auto max-w-4xl px-6 sm:px-8 lg:px-12;
+  }
+
+  .section-padding {
+    @apply py-20 sm:py-28;
+  }
+
+  .card {
+    @apply rounded-2xl border border-warm-200 bg-warm-100 p-6
+           transition-all duration-300 ease-out
+           hover:shadow-lg hover:shadow-warm-200/50;
+  }
+
+  .nav-link {
+    @apply text-warm-800/70 transition-colors duration-200
+           hover:text-accent;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

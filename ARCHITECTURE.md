@@ -1,5 +1,6 @@
 # Personal Blog CMS Architecture
 
+#不允许修改.git文件里的任何文件！
 
 # 1. 项目概述
 

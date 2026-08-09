@@ -1,0 +1,60 @@
+---
+import { getCollection, type CollectionEntry } from 'astro:content';
+import BaseLayout from '@layouts/BaseLayout.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog');
+  return posts.map((post) => ({
+    params: { slug: post.slug },
+    props: { post },
+  }));
+}
+
+type Props = {
+  post: CollectionEntry<'blog'>;
+};
+
+const { post } = Astro.props;
+const { Content } = await post.render();
+---
+
+<BaseLayout title={post.data.title} description={post.data.description}>
+  <article class="section-container section-padding">
+    <!-- Header -->
+    <header class="mb-12">
+      <h1 class="font-serif text-3xl sm:text-4xl lg:text-5xl font-black text-warm-900 leading-tight text-balance">
+        {post.data.title}
+      </h1>
+      <div class="mt-4 flex flex-wrap items-center gap-4 text-sm text-warm-800/40">
+        <time datetime={post.data.pubDate.toISOString()}>
+          {post.data.pubDate.toLocaleDateString('zh-CN', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          })}
+        </time>
+        {post.data.tags && post.data.tags.length > 0 && (
+          <div class="flex items-center gap-2">
+            {post.data.tags.map((tag: string) => (
+              <span class="text-xs bg-warm-200/50 px-2 py-0.5 rounded-full">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </header>
+
+    <!-- Content -->
+    <div class="prose prose-warm max-w-none">
+      <Content />
+    </div>
+
+    <!-- Back link -->
+    <footer class="mt-16 pt-8 border-t border-warm-200">
+      <a href="/blog" class="nav-link text-sm">
+        ← 返回博客列表
+      </a>
+    </footer>
+  </article>
+</BaseLayout>

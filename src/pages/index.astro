@@ -1,0 +1,19 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '@layouts/BaseLayout.astro';
+import Hero from '@components/Hero.astro';
+import ContentNav from '@components/ContentNav.astro';
+import LatestPosts from '@components/LatestPosts.astro';
+
+// Get latest 5 blog posts, sorted by pubDate descending
+const allPosts = await getCollection('blog', ({ data }) => !data.draft);
+const latestPosts = allPosts
+  .sort((a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime())
+  .slice(0, 5);
+---
+
+<BaseLayout>
+  <Hero />
+  <ContentNav />
+  <LatestPosts posts={latestPosts} />
+</BaseLayout>

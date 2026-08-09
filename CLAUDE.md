@@ -2,7 +2,7 @@
 
 # Personal Blog CMS Development Guide
 
-
+#不允许修改.git文件里的任何文件！
 ## 项目定位
 
 这是一个长期维护的个人博客系统。
