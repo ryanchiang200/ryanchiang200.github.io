@@ -5,6 +5,7 @@
 import type { Env } from './auth';
 import { sanitizeFilename } from './media';
 import { deleteObject } from './r2';
+import { hashFolderPassword, verifyFolderPassword } from './driveAuth';
 
 // ---------- 目录清洗 ----------
 
@@ -79,10 +80,127 @@ export function toDriveFile(row: DriveFileRow): DriveFile {
   };
 }
 
+// ---------- 文件夹加密 ----------
+
+export interface FolderSecretRow {
+  folder: string;
+  password_hash: string;
+  salt: string;
+  iterations: number;
+  failed_attempts: number;
+  locked_until: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 该文件夹是否已加密（根目录永不可加密） */
+export async function folderLocked(env: Env, folder: string): Promise<boolean> {
+  const norm = normalizeFolder(folder);
+  if (norm === '/') return false;
+  const row = await env.DB.prepare('SELECT 1 FROM folder_secrets WHERE folder = ?').bind(norm).first();
+  return !!row;
+}
+
+/** 全部已加密文件夹（归一化路径集合） */
+export async function lockedFolderSet(env: Env): Promise<Set<string>> {
+  const { results } = await env.DB.prepare('SELECT folder FROM folder_secrets').all<{ folder: string }>();
+  return new Set(results.map((r) => normalizeFolder(r.folder)));
+}
+
+export type FolderSecretResult =
+  | { ok: true }
+  | { ok: false; code: number; msg: string };
+
+/** 设置/更新文件夹密码（仅存 PBKDF2 哈希，绝不落明文）；password 为空则清除 */
+export async function setFolderSecret(env: Env, folder: string, password: string): Promise<FolderSecretResult> {
+  const norm = normalizeFolder(folder);
+  if (norm === '/') return { ok: false, code: 400, msg: '根目录不可加密' };
+  const pwd = String(password ?? '').trim();
+  if (!pwd) return clearFolderSecret(env, norm); // 空密码 = 清除加密
+  if (pwd.length < 4 || pwd.length > 200) {
+    return { ok: false, code: 400, msg: '密码长度需在 4-200 之间' };
+  }
+  const { hash, salt, iterations } = await hashFolderPassword(pwd);
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO folder_secrets (folder, password_hash, salt, iterations, failed_attempts, locked_until, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 0, 0, ?, ?)
+     ON CONFLICT(folder) DO UPDATE SET password_hash = excluded.password_hash, salt = excluded.salt,
+       iterations = excluded.iterations, failed_attempts = 0, locked_until = 0, updated_at = excluded.updated_at`
+  )
+    .bind(norm, hash, salt, iterations, now, now)
+    .run();
+  return { ok: true };
+}
+
+/** 清除文件夹密码 */
+export async function clearFolderSecret(env: Env, folder: string): Promise<FolderSecretResult> {
+  const norm = normalizeFolder(folder);
+  await env.DB.prepare('DELETE FROM folder_secrets WHERE folder = ?').bind(norm).run();
+  return { ok: true };
+}
+
+// ---------- 解锁（防爆破） ----------
+
+const MAX_FAILED_ATTEMPTS = 5; // 连续错误密码达到阈值
+const LOCK_SECONDS = 300; // 冷却 5 分钟
+
+export type UnlockResult =
+  | { ok: true; folder: string }
+  | { ok: false; code: number; msg: string; retryAfter?: number };
+
+/** 校验文件夹密码；连续失败达到阈值则冷却限速 */
+export async function unlockFolder(env: Env, folder: string, password: string): Promise<UnlockResult> {
+  const norm = normalizeFolder(folder);
+  if (norm === '/') return { ok: false, code: 400, msg: '根目录未加密' };
+  const row = await env.DB
+    .prepare('SELECT * FROM folder_secrets WHERE folder = ?')
+    .bind(norm)
+    .first<FolderSecretRow>();
+  if (!row) return { ok: false, code: 404, msg: '该文件夹未加密' };
+
+  const now = Math.floor(Date.now() / 1000);
+  if (row.locked_until > now) {
+    return { ok: false, code: 429, msg: '尝试过于频繁，请稍后再试', retryAfter: row.locked_until - now };
+  }
+
+  const ok = await verifyFolderPassword(String(password ?? ''), row.password_hash, row.salt, row.iterations);
+  if (ok) {
+    await env.DB
+      .prepare('UPDATE folder_secrets SET failed_attempts = 0, locked_until = 0, updated_at = ? WHERE folder = ?')
+      .bind(new Date().toISOString(), norm)
+      .run();
+    return { ok: true, folder: norm };
+  }
+
+  await env.DB
+    .prepare('UPDATE folder_secrets SET failed_attempts = failed_attempts + 1 WHERE folder = ?')
+    .bind(norm)
+    .run();
+  const updated = await env.DB
+    .prepare('SELECT failed_attempts, locked_until FROM folder_secrets WHERE folder = ?')
+    .bind(norm)
+    .first<{ failed_attempts: number; locked_until: number }>();
+  if (updated && updated.failed_attempts >= MAX_FAILED_ATTEMPTS) {
+    const until = now + LOCK_SECONDS;
+    await env.DB
+      .prepare('UPDATE folder_secrets SET locked_until = ?, failed_attempts = 0 WHERE folder = ?')
+      .bind(until, norm)
+      .run();
+    return { ok: false, code: 429, msg: '尝试过于频繁，已临时锁定，请 5 分钟后再试', retryAfter: LOCK_SECONDS };
+  }
+  return { ok: false, code: 401, msg: '密码错误' };
+}
+
 // ---------- 目录 ----------
 
-/** 全部目录（去重排序，按层级） */
-export async function listFolders(env: Env): Promise<string[]> {
+export interface DriveFolderInfo {
+  path: string;
+  locked: boolean;
+}
+
+/** 全部目录（去重排序，按层级）+ 是否加密 */
+export async function listFolders(env: Env): Promise<DriveFolderInfo[]> {
   const { results } = await env.DB.prepare(
     `SELECT DISTINCT folder FROM drive_files ORDER BY folder ASC`
   ).all<{ folder: string }>();
@@ -94,7 +212,17 @@ export async function listFolders(env: Env): Promise<string[]> {
     childFolderNames(norm).forEach((f) => set.add(f));
     set.add('/' + norm.split('/').filter(Boolean).join('/'));
   }
-  return [...set].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  // 仅配置了密码的空文件夹也应出现在目录树（标记 locked）
+  const { results: secrets } = await env.DB.prepare('SELECT folder FROM folder_secrets').all<{ folder: string }>();
+  for (const s of secrets) {
+    const norm = normalizeFolder(s.folder);
+    set.add(norm);
+    childFolderNames(norm).forEach((f) => set.add(f));
+  }
+  const lockedSet = new Set(secrets.map((s) => normalizeFolder(s.folder)));
+  return [...set]
+    .sort((a, b) => a.localeCompare(b, 'zh-CN'))
+    .map((path) => ({ path, locked: lockedSet.has(path) }));
 }
 
 // ---------- 列表 / 读取 ----------
@@ -107,6 +235,8 @@ export interface DriveListParams {
   page?: number;
   pageSize?: number;
   sort?: DriveSort;
+  /** 全局搜索时排除未授权的加密文件夹（仅在未指定 folder 时生效） */
+  excludeFolders?: string[];
 }
 
 export async function listFiles(env: Env, p: DriveListParams) {
@@ -122,6 +252,10 @@ export async function listFiles(env: Env, p: DriveListParams) {
   if (p.q) {
     where.push('filename LIKE ?');
     args.push(`%${p.q}%`);
+  }
+  if (!p.folder && p.excludeFolders && p.excludeFolders.length > 0) {
+    where.push(`folder NOT IN (${p.excludeFolders.map(() => '?').join(',')})`);
+    args.push(...p.excludeFolders);
   }
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 

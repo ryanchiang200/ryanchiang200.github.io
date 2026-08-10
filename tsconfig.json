@@ -12,5 +12,6 @@
       "@lib/*": ["src/lib/*"],
       "@assets/*": ["src/assets/*"]
     }
-  }
+  },
+  "exclude": ["dist", "workers", "admin", "node_modules"]
 }

@@ -30,6 +30,18 @@ export interface DriveLoginResult {
   user: { sub: string; role: string };
 }
 
+export interface DriveFolderInfo {
+  path: string;
+  locked: boolean;
+}
+
+export interface DriveUnlockResult {
+  token: string;
+  folder: string;
+  expiresAt: string;
+  expiresIn: number;
+}
+
 export interface UploadInitResult {
   uploadId: string;
   r2Key: string;
@@ -57,7 +69,9 @@ async function parseError(res: Response): Promise<Error> {
   } catch {
     /* 非 JSON */
   }
-  return new Error(msg);
+  const err = new Error(msg) as Error & { status?: number };
+  err.status = res.status;
+  return err;
 }
 
 export function driveApi(token: string) {
@@ -82,7 +96,13 @@ export function driveApi(token: string) {
       return request('POST', '/api/drive/login', { body: { password } });
     },
     me: () => request<{ ok: boolean; user: { sub: string; role: string }; exp: number }>('GET', '/api/drive/me'),
-    folders: () => request<{ folders: string[] }>('GET', '/api/drive/folders'),
+    folders: () => request<{ folders: DriveFolderInfo[] }>('GET', '/api/drive/folders'),
+    unlock: (folder: string, password: string) =>
+      request<DriveUnlockResult>('POST', '/api/drive/unlock', { body: { folder, password } }),
+    setFolderSecret: (folder: string, password: string) =>
+      request<{ ok: boolean }>('POST', '/api/drive/folders/secret', { body: { folder, password } }),
+    clearFolderSecret: (folder: string) =>
+      request<{ ok: boolean }>('DELETE', `/api/drive/folders/secret?folder=${encodeURIComponent(folder)}`),
     files: (p: { folder?: string; q?: string; page?: number; pageSize?: number; sort?: string } = {}): Promise<DriveFileList> => {
       const qs = new URLSearchParams();
       if (p.folder) qs.set('folder', p.folder);

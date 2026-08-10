@@ -26,8 +26,11 @@ import {
   driveLogin,
   requireDriveAuth,
   signFileUrl,
-  verifyDriveToken,
   verifySignedFileUrl,
+  parseDriveToken,
+  signFolderToken,
+  folderCovers,
+  FOLDER_TOKEN_TTL,
   type DriveTokenPayload,
 } from './driveAuth';
 import {
@@ -42,6 +45,12 @@ import {
   normalizeFolder,
   makeDriveKey,
   toDriveFile,
+  folderLocked,
+  lockedFolderSet,
+  setFolderSecret,
+  clearFolderSecret,
+  unlockFolder,
+  type DriveFolderInfo,
 } from './drive';
 
 const app = new Hono<{ Bindings: Env; Variables: { driveUser: DriveTokenPayload } }>();
@@ -76,17 +85,20 @@ app.get('/', (c) =>
       { method: 'POST', path: '/api/media/uploads/:uploadId/abort', auth: true, note: '中止上传' },
       { method: 'GET/HEAD', path: '/api/media/:id/file', auth: '按 visibility', note: '流式输出（支持 Range）' },
       { method: 'DELETE', path: '/api/media/:id', auth: true, note: '删除媒体' },
-      { method: 'POST', path: '/api/drive/login', auth: false, note: '网盘密码换 token' },
+      { method: 'POST', path: '/api/drive/login', auth: false, note: '全局密码换写操作 token' },
       { method: 'GET', path: '/api/drive/me', auth: 'drive', note: '网盘会话信息' },
-      { method: 'GET', path: '/api/drive/folders', auth: 'drive', note: '网盘目录列表' },
-      { method: 'GET', path: '/api/drive/files', auth: 'drive', note: '网盘文件列表' },
-      { method: 'GET', path: '/api/drive/files/:id', auth: 'drive', note: '网盘文件元数据' },
+      { method: 'GET', path: '/api/drive/folders', auth: false, note: '目录树（公开，含加密标记）' },
+      { method: 'GET', path: '/api/drive/files', auth: '按文件夹', note: '文件列表（加密目录需文件夹 token）' },
+      { method: 'GET', path: '/api/drive/files/:id', auth: '按文件夹', note: '文件元数据' },
+      { method: 'POST', path: '/api/drive/unlock', auth: false, note: '文件夹密码换文件夹 token' },
+      { method: 'POST', path: '/api/drive/folders/secret', auth: 'drive', note: '设置/清除文件夹密码（仅 API）' },
+      { method: 'DELETE', path: '/api/drive/folders/secret', auth: 'drive', note: '清除文件夹密码' },
       { method: 'POST', path: '/api/drive/files/:id/rename', auth: 'drive', note: '重命名' },
       { method: 'POST', path: '/api/drive/files/:id/move', auth: 'drive', note: '移动目录' },
       { method: 'DELETE', path: '/api/drive/files/:id', auth: 'drive', note: '删除文件' },
-      { method: 'POST', path: '/api/drive/files/:id/sign', auth: 'drive', note: '签发签名 URL' },
-      { method: 'GET', path: '/api/drive/files/:id/stream', auth: '签名或 Bearer', note: '流式播放（Range）' },
-      { method: 'GET', path: '/api/drive/files/:id/download', auth: '签名或 Bearer', note: '下载（计数+1）' },
+      { method: 'POST', path: '/api/drive/files/:id/sign', auth: '按文件夹', note: '签发签名 URL（加密目录需文件夹 token）' },
+      { method: 'GET', path: '/api/drive/files/:id/stream', auth: '签名/文件夹/全局', note: '流式播放（Range）' },
+      { method: 'GET', path: '/api/drive/files/:id/download', auth: '签名/文件夹/全局', note: '下载（计数+1）' },
       { method: 'POST', path: '/api/drive/uploads', auth: 'drive', note: '分片上传初始化' },
       { method: 'GET', path: '/api/drive/uploads/:uploadId', auth: 'drive', note: '上传状态' },
       { method: 'POST', path: '/api/drive/uploads/:uploadId/parts', auth: 'drive', note: '上传分片' },
@@ -405,24 +417,64 @@ app.get('/api/drive/me', requireDriveAuth, (c) =>
   c.json({ ok: true, user: { sub: 'owner', role: 'owner' }, exp: c.var.driveUser.exp })
 );
 
-/** 目录列表 */
-app.get('/api/drive/folders', requireDriveAuth, async (c) => {
+/** 请求访问身份：全局 token / 文件夹 token / 匿名 */
+type DriveAccess =
+  | { kind: 'global' }
+  | { kind: 'folder'; folder: string }
+  | null;
+
+async function driveAccessFromRequest(c: any): Promise<DriveAccess> {
+  const auth = c.req.header('Authorization');
+  if (!auth || !auth.startsWith('Bearer ')) return null;
+  const payload = await parseDriveToken(c.env, auth.slice(7));
+  if (!payload) return null;
+  if (payload.scope === 'drive') return { kind: 'global' };
+  if (payload.scope === 'folder' && typeof payload.folder === 'string') return { kind: 'folder', folder: payload.folder };
+  return null;
+}
+
+/** 能否读取某文件夹：全局可读一切；文件夹 token 需覆盖；匿名仅未加密目录 */
+async function canReadFolder(env: Env, folder: string, access: DriveAccess): Promise<boolean> {
+  if (!access) return !(await folderLocked(env, folder));
+  if (access.kind === 'global') return true;
+  return folderCovers(access.folder, folder);
+}
+
+/** 目录树（公开）：路径 + 是否加密。加密文件夹名称可见，内容受密码保护 */
+app.get('/api/drive/folders', async (c) => {
   try {
-    return c.json({ folders: await listFolders(c.env) });
+    const folders: DriveFolderInfo[] = await listFolders(c.env);
+    return c.json({ folders });
   } catch (e) {
     return handleError(c, e);
   }
 });
 
-/** 文件列表（分页 + 目录/搜索/排序） */
-app.get('/api/drive/files', requireDriveAuth, async (c) => {
+/** 文件列表（分页 + 目录/搜索/排序）：加密目录需文件夹 token */
+app.get('/api/drive/files', async (c) => {
   try {
+    const access = await driveAccessFromRequest(c);
+    const folderParam = c.req.query('folder');
+    const norm = folderParam ? normalizeFolder(folderParam) : null;
+
+    let excludeFolders: string[] | undefined;
+    if (norm) {
+      if (!(await canReadFolder(c.env, norm, access))) {
+        return c.json({ error: '文件夹已加密，需要密码', locked: true }, 403);
+      }
+    } else if (!access || access.kind !== 'global') {
+      // 全局搜索/浏览根目录：排除未授权的加密文件夹
+      const locked = await lockedFolderSet(c.env);
+      excludeFolders = [...locked].filter((f) => !(access && folderCovers(access.folder, f)));
+    }
+
     const data = await listFiles(c.env, {
-      folder: c.req.query('folder'),
+      folder: norm ?? undefined,
       q: c.req.query('q'),
       page: Number(c.req.query('page')) || undefined,
       pageSize: Number(c.req.query('pageSize')) || undefined,
       sort: (c.req.query('sort') as 'created' | 'name' | 'size' | 'downloads') || undefined,
+      excludeFolders,
     });
     return c.json(data);
   } catch (e) {
@@ -430,12 +482,62 @@ app.get('/api/drive/files', requireDriveAuth, async (c) => {
   }
 });
 
-/** 文件元数据 */
-app.get('/api/drive/files/:id', requireDriveAuth, async (c) => {
+/** 文件元数据（加密目录需文件夹 token） */
+app.get('/api/drive/files/:id', async (c) => {
   try {
     const row = await getDriveFile(c.env, c.req.param('id')!);
     if (!row) return c.json({ error: '文件不存在' }, 404);
+    if (!(await canReadFolder(c.env, row.folder, await driveAccessFromRequest(c)))) {
+      return c.json({ error: '文件夹已加密，需要密码', locked: true }, 403);
+    }
     return c.json(toDriveFile(row));
+  } catch (e) {
+    return handleError(c, e);
+  }
+});
+
+/** 解锁加密文件夹：正确密码 → 文件夹 token（2h）。密码仅经 POST body，绝不入 URL/日志 */
+app.post('/api/drive/unlock', async (c) => {
+  try {
+    const { folder, password } = await c.req.json<{ folder?: string; password?: string }>();
+    const res = await unlockFolder(c.env, normalizeFolder(folder), String(password ?? ''));
+    if (!res.ok) {
+      return c.json(
+        { error: res.msg, ...(res.retryAfter ? { retryAfter: res.retryAfter } : {}) },
+        res.code as any
+      );
+    }
+    const token = await signFolderToken(c.env, res.folder);
+    const now = Math.floor(Date.now() / 1000);
+    return c.json({
+      token,
+      folder: res.folder,
+      expiresAt: new Date((now + FOLDER_TOKEN_TTL) * 1000).toISOString(),
+      expiresIn: FOLDER_TOKEN_TTL,
+    });
+  } catch (e) {
+    return handleError(c, e);
+  }
+});
+
+/** 设置/清除文件夹密码（仅 API，需全局 token）。body: { folder, password }，password 为空则清除 */
+app.post('/api/drive/folders/secret', requireDriveAuth, async (c) => {
+  try {
+    const { folder, password } = await c.req.json<{ folder?: string; password?: string }>();
+    const res = await setFolderSecret(c.env, normalizeFolder(folder), String(password ?? ''));
+    if (!res.ok) return jsonErr(c, res.msg, res.code);
+    return c.json({ ok: true });
+  } catch (e) {
+    return handleError(c, e);
+  }
+});
+
+/** 清除文件夹密码（需全局 token） */
+app.delete('/api/drive/folders/secret', requireDriveAuth, async (c) => {
+  try {
+    const res = await clearFolderSecret(c.env, c.req.query('folder') ?? '/');
+    if (!res.ok) return jsonErr(c, res.msg, res.code);
+    return c.json({ ok: true });
   } catch (e) {
     return handleError(c, e);
   }
@@ -476,12 +578,15 @@ app.delete('/api/drive/files/:id', requireDriveAuth, async (c) => {
   }
 });
 
-/** 签发短时效签名 URL（stream 15min / download 5min） */
-app.post('/api/drive/files/:id/sign', requireDriveAuth, async (c) => {
+/** 签发短时效签名 URL（stream 15min / download 5min）。加密目录需文件夹 token 或全局 token */
+app.post('/api/drive/files/:id/sign', async (c) => {
   try {
     const id = c.req.param('id')!;
     const row = await getDriveFile(c.env, id);
     if (!row) return c.json({ error: '文件不存在' }, 404);
+    if (!(await canReadFolder(c.env, row.folder, await driveAccessFromRequest(c)))) {
+      return c.json({ error: '文件夹已加密，需要密码', locked: true }, 403);
+    }
     const { action } = await c.req.json<{ action?: 'stream' | 'download' }>();
     if (!action || !['stream', 'download'].includes(action)) {
       return c.json({ error: 'action 必须是 stream / download' }, 400);
@@ -499,14 +604,20 @@ app.post('/api/drive/files/:id/sign', requireDriveAuth, async (c) => {
   }
 });
 
-/** 网盘文件鉴权：Bearer drive token 或签名 URL 二选一 */
+/** 网盘文件鉴权：全局/文件夹 Bearer token、签名 URL，或未加密目录匿名访问 */
 async function driveFileAuthOk(c: any, id: string, action: 'stream' | 'download'): Promise<boolean> {
   const auth = c.req.header('Authorization');
   if (auth && auth.startsWith('Bearer ')) {
-    const payload = await verifyDriveToken(c.env, auth.slice(7));
-    if (payload) return true;
+    const access = await driveAccessFromRequest(c);
+    if (access) {
+      const row = await getDriveFile(c.env, id);
+      if (row && (await canReadFolder(c.env, row.folder, access))) return true;
+    }
   }
-  return verifySignedFileUrl(c.env, id, action, c.req.query('exp'), c.req.query('sig'));
+  if (await verifySignedFileUrl(c.env, id, action, c.req.query('exp'), c.req.query('sig'))) return true;
+  // 匿名：仅未加密目录可公开访问
+  const row = await getDriveFile(c.env, id);
+  return !!row && !(await folderLocked(c.env, row.folder));
 }
 
 /** 流式播放（视频 seek 用 Range）；或下载（attachment + 计数） */
