@@ -1,0 +1,12 @@
+---
+// 私人网盘 —— 隐藏路由：不出现在导航 / sitemap / 首页
+// BaseLayout noindex 会输出 <meta name="robots" content="noindex, nofollow">
+import BaseLayout from '@layouts/BaseLayout.astro';
+import DriveApp from '@components/drive/DriveApp';
+---
+
+<BaseLayout title="私人网盘" noindex>
+  <section class="section-container section-padding">
+    <DriveApp client:load />
+  </section>
+</BaseLayout>

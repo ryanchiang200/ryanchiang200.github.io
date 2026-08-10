@@ -16,6 +16,8 @@ export interface Props {
   /** 文章在页面中的第一个图片地址 */
   image?: string;
   canonicalURL?: URL;
+  /** 是否禁止收录（隐藏页，如私人网盘 /drive） */
+  noindex?: boolean;
 }
 
 const {
@@ -28,6 +30,7 @@ const {
   author = SITE.author,
   image,
   canonicalURL = new URL(Astro.url.pathname, SITE.url),
+  noindex = false,
 } = Astro.props;
 
 const fullTitle = title ? `${title} — ${SITE.title}` : SITE.title;
@@ -39,6 +42,7 @@ const siteURL = new URL(SITE.url);
 <meta name="title" content={fullTitle} />
 <meta name="description" content={description} />
 <meta name="author" content={author} />
+{noindex && <meta name="robots" content="noindex, nofollow" />}
 <link rel="canonical" href={canonicalURL} />
 
 <!-- Open Graph / Facebook -->

@@ -1,7 +1,9 @@
 # 博客文章上传存储 API —— Cloudflare Worker
 # 部署前必须设置 secrets：
-#   wrangler secret put ADMIN_TOKEN   # 管理端登录密钥
-#   wrangler secret put GITHUB_TOKEN  # 有 actions 写权限的 PAT，用于触发重建
+#   wrangler secret put ADMIN_TOKEN      # 管理端登录密钥
+#   wrangler secret put GITHUB_TOKEN     # 有 actions 写权限的 PAT，用于触发重建
+#   wrangler secret put DRIVE_PASSWORD   # 网盘共享密码（登录换取 token）
+#   wrangler secret put DRIVE_TOKEN_SECRET  # 网盘 token 的 HMAC 签名密钥
 
 name = "blog-admin-api"
 main = "src/index.ts"
@@ -14,6 +16,9 @@ GITHUB_REPO_OWNER = "ryanchiang200"
 GITHUB_REPO = "ryanchiang200.github.io"
 GITHUB_BRANCH = "main"
 WORKFLOW_FILE = "deploy.yml"
+MEDIA_SINGLE_MAX_BYTES = "52428800"     # 单次上传上限 50 MB
+UPLOAD_MAX_BYTES = "5368709120"         # 分片上传总上限 5 GiB
+DRIVE_TOKEN_TTL_SECONDS = "43200"       # 网盘会话有效期 12h
 
 # D1 数据库（database_id 由 `wrangler d1 create blog-db` 生成后回填）
 [[d1_databases]]
@@ -21,3 +26,8 @@ binding = "DB"
 database_name = "blog-db"
 database_id = "b1a6db1d-edae-46bc-9212-1b81bed99d4a"
 migrations_dir = "migrations"
+
+# R2 对象存储（媒体与网盘文件，绝不进入 GitHub）
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "blog-media"

@@ -9,12 +9,15 @@ export interface Props {
   description?: string;
   /** SEO 附加信息，传给 Seo 组件 */
   seo?: Record<string, any>;
+  /** 禁止收录（隐藏页） */
+  noindex?: boolean;
 }
 
 const {
   title,
   description = SITE.description,
   seo = {},
+  noindex = false,
 } = Astro.props;
 ---
 <!doctype html>
@@ -24,7 +27,7 @@ const {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <Seo title={title} description={description} {...seo} />
+    <Seo title={title} description={description} noindex={noindex} {...seo} />
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

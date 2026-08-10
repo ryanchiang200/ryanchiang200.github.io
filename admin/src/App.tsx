@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createApi, API_URL, type Post } from './api';
+import MediaManager from './media/MediaManager';
 
 const EMPTY: Post = {
   slug: '',
@@ -73,6 +74,7 @@ function Login({ onLogin }: { onLogin: (t: string) => void }) {
 
 function Dashboard({ token, onLogout }: { token: string; onLogout: () => void }) {
   const api = useCallback(() => createApi(token), [token]);
+  const [tab, setTab] = useState<'posts' | 'media'>('posts');
   const [posts, setPosts] = useState<Post[]>([]);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<Post>(EMPTY);
@@ -103,59 +105,87 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
       <header className="bg-white border-b border-warm-200">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div>
-            <h1 className="font-serif text-lg font-bold text-warm-900">博客文章管理</h1>
+            <h1 className="font-serif text-lg font-bold text-warm-900">博客内容管理</h1>
             <p className="text-xs text-warm-800/50">
               写入 Cloudflare D1，提交后自动触发构建发布
             </p>
           </div>
-          <button onClick={onLogout} className="text-sm text-warm-800/60 hover:text-accent">
-            退出
-          </button>
+          <div className="flex items-center gap-4">
+            <nav className="flex gap-1">
+              {(
+                [
+                  ['posts', '文章'],
+                  ['media', '媒体库'],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                    tab === key
+                      ? 'bg-accent text-white'
+                      : 'text-warm-800/60 hover:text-accent'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+            <button onClick={onLogout} className="text-sm text-warm-800/60 hover:text-accent">
+              退出
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-8 grid lg:grid-cols-[1fr_340px] gap-8">
-        <Editor
-          post={editing}
-          isEdit={isEdit}
-          api={api()}
-          onSaved={(msg) => { setError(''); void load(); setEditing(EMPTY); setIsEdit(false); alert(msg); }}
-        />
+      {tab === 'media' ? (
+        <main className="max-w-6xl mx-auto px-6 py-8">
+          <MediaManager token={token} />
+        </main>
+      ) : (
+        <main className="max-w-6xl mx-auto px-6 py-8 grid lg:grid-cols-[1fr_340px] gap-8">
+          <Editor
+            post={editing}
+            isEdit={isEdit}
+            api={api()}
+            onSaved={(msg) => { setError(''); void load(); setEditing(EMPTY); setIsEdit(false); alert(msg); }}
+          />
 
-        <aside>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-warm-900">文章列表</h2>
-            <button onClick={startNew} className="btn-ghost text-sm">+ 新建</button>
-          </div>
-          {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
-          <div className="card divide-y divide-warm-200">
-            {posts.length === 0 ? (
-              <p className="p-4 text-sm text-warm-800/40">还没有文章</p>
-            ) : (
-              posts.map((p) => (
-                <div key={p.slug} className="flex items-center justify-between gap-2 p-3">
-                  <button onClick={() => startEdit(p)} className="text-left min-w-0 group">
-                    <span className="block text-sm text-warm-800 truncate group-hover:text-accent">
-                      {p.title || p.slug}
-                    </span>
-                    <span className="block text-xs text-warm-800/40 tabular-nums">
-                      {p.pubDate}
-                      {p.draft && <span className="ml-2 text-accent">草稿</span>}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => void removePost(api(), p.slug, load)}
-                    className="text-xs text-red-500 hover:text-red-700 shrink-0"
-                    title="删除"
-                  >
-                    删除
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </aside>
-      </main>
+          <aside>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold text-warm-900">文章列表</h2>
+              <button onClick={startNew} className="btn-ghost text-sm">+ 新建</button>
+            </div>
+            {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+            <div className="card divide-y divide-warm-200">
+              {posts.length === 0 ? (
+                <p className="p-4 text-sm text-warm-800/40">还没有文章</p>
+              ) : (
+                posts.map((p) => (
+                  <div key={p.slug} className="flex items-center justify-between gap-2 p-3">
+                    <button onClick={() => startEdit(p)} className="text-left min-w-0 group">
+                      <span className="block text-sm text-warm-800 truncate group-hover:text-accent">
+                        {p.title || p.slug}
+                      </span>
+                      <span className="block text-xs text-warm-800/40 tabular-nums">
+                        {p.pubDate}
+                        {p.draft && <span className="ml-2 text-accent">草稿</span>}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => void removePost(api(), p.slug, load)}
+                      className="text-xs text-red-500 hover:text-red-700 shrink-0"
+                      title="删除"
+                    >
+                      删除
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </aside>
+        </main>
+      )}
     </div>
   );
 }
