@@ -51,6 +51,12 @@ export const CONTENT_SECTIONS = [
     href: '/gallery',
     available: false,
   },
+  {
+    emoji: '📁',
+    title: '网盘',
+    href: '/drive',
+    available: true,
+  },
 ];
 
 export const SOCIAL_LINKS = [
