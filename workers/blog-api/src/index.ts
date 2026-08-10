@@ -1,7 +1,7 @@
 /** 博客内容 API —— Cloudflare Worker + Hono（D1 元数据 + R2 对象存储）
  *  文章管理 / 媒体库 / 私人网盘
  */
-import { Hono } from 'hono';
+import { Hono, type Next } from 'hono';
 import { cors } from 'hono/cors';
 import { requireAuth, type Env } from './auth';
 import { listPosts, getPost, upsertPost, deletePost } from './db';
@@ -28,6 +28,7 @@ import {
   signFileUrl,
   verifySignedFileUrl,
   parseDriveToken,
+  verifyDriveToken,
   signFolderToken,
   folderCovers,
   FOLDER_TOKEN_TTL,
@@ -91,8 +92,8 @@ app.get('/', (c) =>
       { method: 'GET', path: '/api/drive/files', auth: '按文件夹', note: '文件列表（加密目录需文件夹 token）' },
       { method: 'GET', path: '/api/drive/files/:id', auth: '按文件夹', note: '文件元数据' },
       { method: 'POST', path: '/api/drive/unlock', auth: false, note: '文件夹密码换文件夹 token' },
-      { method: 'POST', path: '/api/drive/folders/secret', auth: 'drive', note: '设置/清除文件夹密码（仅 API）' },
-      { method: 'DELETE', path: '/api/drive/folders/secret', auth: 'drive', note: '清除文件夹密码' },
+      { method: 'POST', path: '/api/drive/folders/secret', auth: 'admin|drive', note: '设置/清除文件夹密码（管理端或全局 token）' },
+      { method: 'DELETE', path: '/api/drive/folders/secret', auth: 'admin|drive', note: '清除文件夹密码' },
       { method: 'POST', path: '/api/drive/files/:id/rename', auth: 'drive', note: '重命名' },
       { method: 'POST', path: '/api/drive/files/:id/move', auth: 'drive', note: '移动目录' },
       { method: 'DELETE', path: '/api/drive/files/:id', auth: 'drive', note: '删除文件' },
@@ -520,8 +521,23 @@ app.post('/api/drive/unlock', async (c) => {
   }
 });
 
-/** 设置/清除文件夹密码（仅 API，需全局 token）。body: { folder, password }，password 为空则清除 */
-app.post('/api/drive/folders/secret', requireDriveAuth, async (c) => {
+/** 管理文件夹密码：接受管理端 ADMIN_TOKEN 或网盘全局 token（scope=drive） */
+async function requireAdminOrDrive(c: any, next: Next) {
+  const env = c.env as Env;
+  const auth = c.req.header('Authorization');
+  if (auth && auth === `Bearer ${env.ADMIN_TOKEN}`) return next();
+  if (auth && auth.startsWith('Bearer ')) {
+    const payload = await verifyDriveToken(env, auth.slice(7));
+    if (payload) {
+      c.set('driveUser', payload);
+      return next();
+    }
+  }
+  return c.json({ error: '未授权或令牌无效' }, 401);
+}
+
+/** 设置/清除文件夹密码（管理端或网盘全局 token）。body: { folder, password }，password 为空则清除 */
+app.post('/api/drive/folders/secret', requireAdminOrDrive, async (c) => {
   try {
     const { folder, password } = await c.req.json<{ folder?: string; password?: string }>();
     const res = await setFolderSecret(c.env, normalizeFolder(folder), String(password ?? ''));
@@ -532,8 +548,8 @@ app.post('/api/drive/folders/secret', requireDriveAuth, async (c) => {
   }
 });
 
-/** 清除文件夹密码（需全局 token） */
-app.delete('/api/drive/folders/secret', requireDriveAuth, async (c) => {
+/** 清除文件夹密码（管理端或网盘全局 token） */
+app.delete('/api/drive/folders/secret', requireAdminOrDrive, async (c) => {
   try {
     const res = await clearFolderSecret(c.env, c.req.query('folder') ?? '/');
     if (!res.ok) return jsonErr(c, res.msg, res.code);

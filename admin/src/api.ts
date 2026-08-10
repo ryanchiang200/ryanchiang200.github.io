@@ -49,6 +49,11 @@ export interface MediaList {
   pageSize: number;
 }
 
+export interface DriveFolderInfo {
+  path: string;
+  locked: boolean;
+}
+
 export interface UploadInitResult {
   uploadId: string;
   r2Key: string;
@@ -188,6 +193,32 @@ export function createApi(token: string) {
       const res = await fetch(`${API_URL}/api/media/uploads/${uploadId}`, { headers });
       if (!res.ok) throw await parseError(res);
       return res.json();
+    },
+
+    // ---------- 网盘文件夹加密 ----------
+    async driveFolders(): Promise<DriveFolderInfo[]> {
+      const res = await fetch(`${API_URL}/api/drive/folders`, { headers });
+      if (!res.ok) throw await parseError(res);
+      const data = (await res.json()) as { folders: DriveFolderInfo[] };
+      return data.folders;
+    },
+
+    /** 设置文件夹密码（空 password 会走后端清除逻辑，故这里用专用清除方法） */
+    async driveSetFolderSecret(folder: string, password: string): Promise<void> {
+      const res = await fetch(`${API_URL}/api/drive/folders/secret`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ folder, password }),
+      });
+      if (!res.ok) throw await parseError(res);
+    },
+
+    async driveClearFolderSecret(folder: string): Promise<void> {
+      const res = await fetch(`${API_URL}/api/drive/folders/secret?folder=${encodeURIComponent(folder)}`, {
+        method: 'DELETE',
+        headers,
+      });
+      if (!res.ok) throw await parseError(res);
     },
 
     /**

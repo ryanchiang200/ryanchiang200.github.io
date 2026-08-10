@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createApi, API_URL, type Post } from './api';
 import MediaManager from './media/MediaManager';
+import FolderSecurity from './drive/FolderSecurity';
 
 const EMPTY: Post = {
   slug: '',
@@ -74,7 +75,7 @@ function Login({ onLogin }: { onLogin: (t: string) => void }) {
 
 function Dashboard({ token, onLogout }: { token: string; onLogout: () => void }) {
   const api = useCallback(() => createApi(token), [token]);
-  const [tab, setTab] = useState<'posts' | 'media'>('posts');
+  const [tab, setTab] = useState<'posts' | 'media' | 'drive'>('posts');
   const [posts, setPosts] = useState<Post[]>([]);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<Post>(EMPTY);
@@ -116,6 +117,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                 [
                   ['posts', '文章'],
                   ['media', '媒体库'],
+                  ['drive', '网盘加密'],
                 ] as const
               ).map(([key, label]) => (
                 <button
@@ -141,6 +143,10 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
       {tab === 'media' ? (
         <main className="max-w-6xl mx-auto px-6 py-8">
           <MediaManager token={token} />
+        </main>
+      ) : tab === 'drive' ? (
+        <main className="max-w-6xl mx-auto px-6 py-8">
+          <FolderSecurity token={token} />
         </main>
       ) : (
         <main className="max-w-6xl mx-auto px-6 py-8 grid lg:grid-cols-[1fr_340px] gap-8">
